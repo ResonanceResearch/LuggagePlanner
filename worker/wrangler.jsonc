@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "luggage-planner-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ALLOWED_ORIGIN": "https://resonanceresearch.github.io"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "luggage-planner-db",
+      "database_id": "a5c93b44-8b4c-4f34-84d3-39a6256c9ae0",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
