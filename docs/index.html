@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173b57">
+  <meta name="description" content="Plan luggage for solo and family trips, with reusable item lists and saved packing layouts.">
+  <title>Packwise — Luggage Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="img">
+            <rect x="9" y="15" width="30" height="25" rx="7"></rect>
+            <path d="M18 15v-3.5A4.5 4.5 0 0 1 22.5 7h3A4.5 4.5 0 0 1 30 11.5V15"></path>
+            <path d="M16 25h16M16 31h10"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="eyebrow">Travel planning</div>
+          <div class="brand-name">Packwise</div>
+        </div>
+        <button class="icon-button sidebar-close" id="sidebarCloseBtn" type="button" aria-label="Close navigation">×</button>
+      </div>
+
+      <button class="primary-button full-width" id="newTripBtn" type="button">
+        <span aria-hidden="true">＋</span> New trip
+      </button>
+
+      <div class="sidebar-section">
+        <div class="section-label">Active trips</div>
+        <div class="trip-list" id="activeTripList"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <button class="section-toggle" id="archivedToggleBtn" type="button" aria-expanded="false">
+          <span>Previous trips</span><span id="archiveChevron">›</span>
+        </button>
+        <div class="trip-list hidden" id="archivedTripList"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="secondary-button full-width" id="manageLibraryBtn" type="button">Manage categories & items</button>
+        <button class="text-button full-width" id="connectionBtn" type="button">Connection settings</button>
+        <div class="connection-status" id="connectionStatus"><span class="status-dot"></span><span>Not connected</span></div>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <main class="main-content">
+      <header class="mobile-header">
+        <button class="icon-button" id="sidebarOpenBtn" type="button" aria-label="Open navigation">☰</button>
+        <div class="mobile-brand">Packwise</div>
+        <button class="icon-button" id="mobileNewTripBtn" type="button" aria-label="Create trip">＋</button>
+      </header>
+
+      <section class="empty-state" id="emptyState">
+        <div class="empty-illustration" aria-hidden="true">🧳</div>
+        <div class="eyebrow">Reusable packing plans</div>
+        <h1>Plan each bag before you travel.</h1>
+        <p>Create a solo or family trip, drag items into carry-ons and luggage, and reuse the full layout for a future trip.</p>
+        <button class="primary-button" id="emptyCreateTripBtn" type="button">Create your first trip</button>
+      </section>
+
+      <section class="workspace hidden" id="workspace">
+        <div class="trip-heading panel">
+          <div class="trip-heading-main">
+            <div class="eyebrow" id="tripModeLabel">Solo trip</div>
+            <h1 id="tripTitle">Trip</h1>
+            <div class="trip-meta" id="tripMeta"></div>
+          </div>
+          <div class="heading-actions">
+            <button class="secondary-button" id="duplicateTripBtn" type="button">Use as new trip</button>
+            <button class="secondary-button" id="editTripBtn" type="button">Edit trip</button>
+            <button class="icon-button more-button" id="archiveTripBtn" type="button" title="Archive trip" aria-label="Archive trip">⋯</button>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="statGrid">
+          <article class="stat-card"><span class="stat-value" id="statItems">0</span><span class="stat-label">planned items</span></article>
+          <article class="stat-card"><span class="stat-value" id="statPacked">0</span><span class="stat-label">packed</span></article>
+          <article class="stat-card"><span class="stat-value" id="statBags">0</span><span class="stat-label">bags</span></article>
+          <article class="stat-card progress-card"><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><span class="stat-label" id="progressLabel">0% ready</span></article>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="panel library-panel">
+            <div class="panel-header">
+              <div>
+                <div class="eyebrow">Reusable library</div>
+                <h2>Items</h2>
+              </div>
+              <button class="small-button" id="addItemBtn" type="button">＋ Item</button>
+            </div>
+
+            <label class="search-box">
+              <span aria-hidden="true">⌕</span>
+              <input id="itemSearch" type="search" placeholder="Search all items" autocomplete="off">
+            </label>
+
+            <div class="category-chips" id="categoryChips" aria-label="Item categories"></div>
+            <div class="library-hint">Drag an item to a bag, or use the + button on touch devices.</div>
+            <div class="item-library" id="itemLibrary"></div>
+          </section>
+
+          <section class="packing-column">
+            <div class="packing-toolbar panel">
+              <div>
+                <div class="eyebrow">Trip layout</div>
+                <h2>Bags & travellers</h2>
+              </div>
+              <div class="toolbar-actions">
+                <button class="small-button" id="manageTravelersBtn" type="button">Travellers</button>
+                <button class="small-button" id="addBagBtn" type="button">＋ Bag</button>
+              </div>
+            </div>
+            <div class="bag-groups" id="bagGroups"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="connectionDialog" class="dialog medium-dialog">
+    <form method="dialog" class="dialog-card" id="connectionForm">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Cloudflare connection</div><h2>Connect the dashboard</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <p class="dialog-intro">Enter the deployed Worker URL and the private access token stored as the Worker secret <code>APP_ACCESS_TOKEN</code>. They remain in this browser only.</p>
+      <label class="field">
+        <span>Worker API URL</span>
+        <input id="apiUrlInput" name="apiUrl" type="url" placeholder="https://luggage-planner-api.example.workers.dev" required>
+      </label>
+      <label class="field">
+        <span>Access token</span>
+        <input id="accessTokenInput" name="accessToken" type="password" autocomplete="current-password" required>
+      </label>
+      <label class="check-field"><input id="rememberTokenInput" type="checkbox" checked><span>Remember this token on this device</span></label>
+      <div class="inline-message hidden" id="connectionTestMessage"></div>
+      <div class="dialog-actions">
+        <button class="secondary-button" id="testConnectionBtn" type="button">Test connection</button>
+        <button class="primary-button" id="saveConnectionBtn" type="submit">Save & load</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="tripDialog" class="dialog medium-dialog">
+    <form method="dialog" class="dialog-card" id="tripForm">
+      <div class="dialog-header">
+        <div><div class="eyebrow" id="tripDialogEyebrow">New packing plan</div><h2 id="tripDialogTitle">Create a trip</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="tripIdInput">
+      <label class="field"><span>Trip name</span><input id="tripNameInput" maxlength="120" placeholder="South Africa — August" required></label>
+      <label class="field"><span>Destination</span><input id="tripDestinationInput" maxlength="160" placeholder="Cape Town and Kruger"></label>
+      <div class="field-row">
+        <label class="field"><span>Start date</span><input id="tripStartInput" type="date"></label>
+        <label class="field"><span>End date</span><input id="tripEndInput" type="date"></label>
+      </div>
+      <fieldset class="segmented-field" id="travelModeFieldset">
+        <legend>Travelling as</legend>
+        <label><input type="radio" name="travelMode" value="solo" checked><span>Solo</span></label>
+        <label><input type="radio" name="travelMode" value="family"><span>Family</span></label>
+      </fieldset>
+      <label class="field hidden" id="travelerNamesField">
+        <span>Family members <small>one name per line</small></span>
+        <textarea id="travelerNamesInput" rows="4" placeholder="Jay&#10;Family member"></textarea>
+      </label>
+      <label class="field"><span>Notes</span><textarea id="tripNotesInput" rows="3" maxlength="1500" placeholder="Airline limits, weather, special plans…"></textarea></label>
+      <div class="dialog-actions">
+        <button class="secondary-button" value="cancel" type="button" data-close-dialog>Cancel</button>
+        <button class="primary-button" id="saveTripBtn" type="submit">Create trip</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="itemDialog" class="dialog medium-dialog">
+    <form method="dialog" class="dialog-card" id="itemForm">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Item library</div><h2 id="itemDialogTitle">Add an item</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="itemIdInput">
+      <label class="field"><span>Item name</span><input id="itemNameInput" maxlength="120" required></label>
+      <label class="field"><span>Category</span><select id="itemCategoryInput" required></select></label>
+      <div class="field-row compact-row">
+        <label class="field"><span>Default quantity</span><input id="itemQuantityInput" type="number" min="1" max="999" value="1"></label>
+        <label class="check-field elevated-check"><input id="itemEssentialInput" type="checkbox"><span>Mark essential</span></label>
+      </div>
+      <label class="field"><span>Notes</span><textarea id="itemNotesInput" rows="3" maxlength="500"></textarea></label>
+      <div class="dialog-actions split-actions">
+        <button class="danger-text-button hidden" id="archiveItemBtn" type="button">Archive item</button>
+        <span></span>
+        <button class="secondary-button" value="cancel" type="button" data-close-dialog>Cancel</button>
+        <button class="primary-button" type="submit">Save item</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="libraryDialog" class="dialog wide-dialog">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Reusable master list</div><h2>Manage categories & items</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-library aria-label="Close">×</button>
+      </div>
+      <div class="library-manager-toolbar">
+        <div class="manager-tabs" role="tablist">
+          <button class="manager-tab active" id="categoriesTabBtn" type="button">Categories</button>
+          <button class="manager-tab" id="itemsTabBtn" type="button">Items</button>
+        </div>
+        <label class="check-field"><input id="showArchivedInput" type="checkbox"><span>Show archived</span></label>
+      </div>
+      <div id="categoryManagerView">
+        <form class="inline-add-form" id="categoryForm">
+          <input id="categoryIconInput" maxlength="12" placeholder="📦" aria-label="Category icon">
+          <input id="categoryNameInput" maxlength="80" placeholder="New category name" required>
+          <button class="primary-button" type="submit">Add category</button>
+        </form>
+        <div class="manager-list" id="categoryManagerList"></div>
+      </div>
+      <div class="hidden" id="itemManagerView">
+        <label class="search-box manager-search"><span>⌕</span><input id="managerItemSearch" type="search" placeholder="Search library"></label>
+        <div class="manager-list" id="itemManagerList"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="bagDialog" class="dialog medium-dialog">
+    <form method="dialog" class="dialog-card" id="bagForm">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Trip layout</div><h2 id="bagDialogTitle">Add a bag</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="bagIdInput">
+      <label class="field"><span>Bag name</span><input id="bagNameInput" maxlength="100" required></label>
+      <label class="field"><span>Bag type</span>
+        <select id="bagTypeInput">
+          <option value="carry_on">Carry-on</option>
+          <option value="checked_luggage">Checked luggage</option>
+          <option value="personal_item">Personal item</option>
+          <option value="medication_kit">Medication kit</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label class="check-field"><input id="bagSharedInput" type="checkbox"><span>Shared bag</span></label>
+      <label class="field" id="bagOwnerField"><span>Traveller</span><select id="bagOwnerInput"></select></label>
+      <label class="field"><span>Capacity or airline note</span><input id="bagCapacityInput" maxlength="160" placeholder="10 kg limit"></label>
+      <div class="dialog-actions split-actions">
+        <button class="danger-text-button hidden" id="deleteBagBtn" type="button">Delete bag</button>
+        <span></span>
+        <button class="secondary-button" value="cancel" type="button" data-close-dialog>Cancel</button>
+        <button class="primary-button" type="submit">Save bag</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="travelersDialog" class="dialog medium-dialog">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Family travel</div><h2>Travellers</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-travelers aria-label="Close">×</button>
+      </div>
+      <form class="inline-add-form traveler-add-form" id="travelerForm">
+        <input id="travelerNameInput" maxlength="80" placeholder="Traveller name" required>
+        <button class="primary-button" type="submit">Add traveller</button>
+      </form>
+      <div class="manager-list" id="travelerManagerList"></div>
+      <p class="small-note">Removing a traveller makes their existing bags shared rather than deleting packed items.</p>
+    </div>
+  </dialog>
+
+  <dialog id="destinationDialog" class="dialog small-dialog">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <div><div class="eyebrow">Add to trip</div><h2 id="destinationDialogTitle">Choose a bag</h2></div>
+        <button class="icon-button dialog-close" type="button" data-close-destination aria-label="Close">×</button>
+      </div>
+      <div class="destination-list" id="destinationList"></div>
+    </div>
+  </dialog>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
