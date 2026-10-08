@@ -21,6 +21,11 @@ const state = {
   managerTab: "categories",
   tripDialogMode: "create",
   destinationItemId: null,
+  destinationPlacementId: null,
+  mobileView: "items",
+  quickAddBagId: null,
+  collapsedBags: new Set(),
+  mobileBagTripId: "",
   busyCount: 0,
   dragPayload: null
 };
@@ -59,6 +64,20 @@ function bindEvents() {
   el.editTripBtn.addEventListener("click", () => openTripDialog("edit"));
   el.duplicateTripBtn.addEventListener("click", () => openTripDialog("duplicate"));
   el.archiveTripBtn.addEventListener("click", archiveOrRestoreCurrentTrip);
+
+  el.mobileItemsTab.addEventListener("click", () => setMobileView("items"));
+  el.mobileBagsTab.addEventListener("click", () => setMobileView("bags"));
+  el.mobileQuickAddCancel.addEventListener("click", () => {
+    state.quickAddBagId = null;
+    renderMobileQuickAddBanner();
+  });
+
+  const mobileMedia = window.matchMedia("(max-width: 880px)");
+  const handleLayoutChange = () => {
+    if (state.tripDetail) renderWorkspace();
+  };
+  if (mobileMedia.addEventListener) mobileMedia.addEventListener("change", handleLayoutChange);
+  else mobileMedia.addListener?.(handleLayoutChange);
 
   el.sidebarOpenBtn.addEventListener("click", openSidebar);
   el.sidebarCloseBtn.addEventListener("click", closeSidebar);
@@ -197,6 +216,9 @@ function renderWorkspace() {
   el.progressLabel.textContent = `${percent}% ready`;
   el.archiveTripBtn.title = trip.status === "archived" ? "Restore trip" : "Archive trip";
   el.archiveTripBtn.setAttribute("aria-label", el.archiveTripBtn.title);
+  el.mobileBagCountBadge.textContent = String(bags.length);
+  applyMobileView();
+  renderMobileQuickAddBanner();
 
   renderCategoryChips();
   renderItemLibrary();
@@ -270,11 +292,12 @@ function renderItemLibrary() {
     return;
   }
 
+  const mobile = isMobileLayout();
   el.itemLibrary.innerHTML = filtered.map((item) => {
     const category = categoriesById.get(item.category_id);
     const already = tripQuantities.get(item.id) || 0;
     return `
-      <article class="library-item" draggable="true" data-item-id="${escapeAttr(item.id)}">
+      <article class="library-item" draggable="${mobile ? "false" : "true"}" data-item-id="${escapeAttr(item.id)}" tabindex="${mobile ? "0" : "-1"}">
         <div class="library-item-main">
           <div class="library-item-name">
             <span>${escapeHtml(item.name)}</span>
@@ -293,6 +316,10 @@ function renderItemLibrary() {
 
   el.itemLibrary.querySelectorAll(".library-item").forEach((card) => {
     card.addEventListener("dragstart", (event) => {
+      if (isMobileLayout()) {
+        event.preventDefault();
+        return;
+      }
       card.classList.add("dragging");
       const payload = { kind: "library-item", itemId: card.dataset.itemId };
       state.dragPayload = payload;
@@ -303,15 +330,42 @@ function renderItemLibrary() {
       card.classList.remove("dragging");
       clearDragState();
     });
+    card.addEventListener("click", (event) => {
+      if (!isMobileLayout() || event.target.closest("button")) return;
+      chooseDestinationForItem(card.dataset.itemId);
+    });
+    card.addEventListener("keydown", (event) => {
+      if (!isMobileLayout() || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      chooseDestinationForItem(card.dataset.itemId);
+    });
   });
+
   el.itemLibrary.querySelectorAll("[data-add-item]").forEach((button) => {
-    button.addEventListener("click", () => openDestinationDialog(button.dataset.addItem));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      chooseDestinationForItem(button.dataset.addItem);
+    });
   });
+}
+
+function chooseDestinationForItem(itemId) {
+  if (isMobileLayout() && state.quickAddBagId && state.tripDetail?.bags.some((bag) => bag.id === state.quickAddBagId)) {
+    addItemToBag(itemId, state.quickAddBagId).catch(handleError);
+    return;
+  }
+  openDestinationDialog(itemId);
 }
 
 function renderBagGroups() {
   const detail = state.tripDetail;
   if (!detail) return;
+
+  if (isMobileLayout() && state.mobileBagTripId !== state.activeTripId) {
+    state.mobileBagTripId = state.activeTripId;
+    state.collapsedBags = new Set(detail.bags.slice(1).map((bag) => bag.id));
+  }
+
   const placementsByBag = groupBy(detail.placements, (placement) => placement.bag_id);
   const bagsByOwner = groupBy(detail.bags, (bag) => bag.owner_traveler_id || "shared");
   const groups = [];
@@ -335,7 +389,11 @@ function renderBagGroups() {
 function renderBagGroup(title, ownerKey, colorIndex, bags, placementsByBag) {
   return `
     <section class="bag-group" data-owner-key="${escapeAttr(ownerKey)}">
-      <div class="bag-group-heading"><span class="traveler-dot c${Number(colorIndex) % 8}"></span><h3>${escapeHtml(title)}</h3></div>
+      <div class="bag-group-heading">
+        <span class="traveler-dot c${Number(colorIndex) % 8}"></span>
+        <h3>${escapeHtml(title)}</h3>
+        <span class="bag-group-count">${bags.length} ${bags.length === 1 ? "bag" : "bags"}</span>
+      </div>
       <div class="bag-grid">
         ${bags.map((bag) => renderBagCard(bag, placementsByBag.get(bag.id) || [])).join("")}
       </div>
@@ -348,9 +406,10 @@ function renderBagCard(bag, placements) {
   const subtitleBits = [bag.owner_name || (bag.is_shared ? "Shared" : "Unassigned")];
   if (bag.capacity_note) subtitleBits.push(bag.capacity_note);
   if (placements.length) subtitleBits.push(`${packedCount}/${placements.length} packed`);
+  const collapsed = isMobileLayout() && state.collapsedBags.has(bag.id);
 
   return `
-    <article class="bag-card" data-bag-id="${escapeAttr(bag.id)}">
+    <article class="bag-card ${collapsed ? "mobile-collapsed" : ""}" data-bag-id="${escapeAttr(bag.id)}">
       <header class="bag-card-header">
         <div class="bag-title-row">
           <div class="bag-icon">${BAG_ICONS[bag.bag_type] || BAG_ICONS.custom}</div>
@@ -359,10 +418,18 @@ function renderBagCard(bag, placements) {
             <div class="bag-subtitle">${escapeHtml(subtitleBits.join(" · "))}</div>
           </div>
         </div>
-        <button class="bag-edit-button" type="button" aria-label="Edit ${escapeAttr(bag.name)}" data-edit-bag="${escapeAttr(bag.id)}">•••</button>
+        <div class="bag-header-actions">
+          <button class="bag-collapse-button" type="button" aria-label="${collapsed ? "Expand" : "Collapse"} ${escapeAttr(bag.name)}" aria-expanded="${String(!collapsed)}" data-toggle-bag="${escapeAttr(bag.id)}">${collapsed ? "⌄" : "⌃"}</button>
+          <button class="bag-edit-button" type="button" aria-label="Edit ${escapeAttr(bag.name)}" data-edit-bag="${escapeAttr(bag.id)}">•••</button>
+        </div>
       </header>
-      <div class="bag-drop-zone">
-        ${placements.length ? `<div class="placement-list">${placements.map(renderPlacement).join("")}</div>` : '<div class="bag-empty">Drop items here</div>'}
+      <div class="bag-card-content">
+        <div class="bag-drop-zone">
+          ${placements.length ? `<div class="placement-list">${placements.map(renderPlacement).join("")}</div>` : '<div class="bag-empty">No items yet</div>'}
+        </div>
+        <div class="mobile-bag-actions">
+          <button class="small-button mobile-add-items-button" type="button" data-quick-add-bag="${escapeAttr(bag.id)}">＋ Add items to ${escapeHtml(bag.name)}</button>
+        </div>
       </div>
     </article>
   `;
@@ -370,13 +437,14 @@ function renderBagCard(bag, placements) {
 
 function renderPlacement(placement) {
   return `
-    <div class="placement-item ${placement.is_packed ? "packed" : ""}" draggable="true" data-placement-id="${escapeAttr(placement.id)}">
+    <div class="placement-item ${placement.is_packed ? "packed" : ""}" draggable="${isMobileLayout() ? "false" : "true"}" data-placement-id="${escapeAttr(placement.id)}">
       <input class="pack-check" type="checkbox" ${placement.is_packed ? "checked" : ""} aria-label="Mark ${escapeAttr(placement.item_name)} packed" data-pack-id="${escapeAttr(placement.id)}">
       <div class="placement-main">
         <div class="placement-name">${escapeHtml(placement.item_name)}</div>
         <div class="placement-meta">${escapeHtml(placement.category_icon || "📦")} ${escapeHtml(placement.category_name || "")}</div>
       </div>
       <div class="placement-actions">
+        <button class="move-placement mobile-placement-action" type="button" data-move-placement="${escapeAttr(placement.id)}">Move</button>
         <div class="quantity-control" aria-label="Quantity">
           <button type="button" data-qty-action="decrease" data-placement-id="${escapeAttr(placement.id)}" aria-label="Decrease quantity">−</button>
           <span>${Number(placement.quantity || 1)}</span>
@@ -422,8 +490,31 @@ function bindBagInteractions() {
   el.bagGroups.querySelectorAll("[data-edit-bag]").forEach((button) => {
     button.addEventListener("click", () => openBagDialog(button.dataset.editBag));
   });
+  el.bagGroups.querySelectorAll("[data-toggle-bag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const bagId = button.dataset.toggleBag;
+      if (state.collapsedBags.has(bagId)) state.collapsedBags.delete(bagId);
+      else state.collapsedBags.add(bagId);
+      renderBagGroups();
+    });
+  });
+  el.bagGroups.querySelectorAll("[data-quick-add-bag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.quickAddBagId = button.dataset.quickAddBag;
+      setMobileView("items");
+      renderMobileQuickAddBanner();
+      queueMicrotask(() => el.itemSearch.focus({ preventScroll: true }));
+    });
+  });
+  el.bagGroups.querySelectorAll("[data-move-placement]").forEach((button) => {
+    button.addEventListener("click", () => openMoveDestinationDialog(button.dataset.movePlacement));
+  });
   el.bagGroups.querySelectorAll(".placement-item").forEach((card) => {
     card.addEventListener("dragstart", (event) => {
+      if (isMobileLayout()) {
+        event.preventDefault();
+        return;
+      }
       card.classList.add("dragging");
       const payload = { kind: "placement", placementId: card.dataset.placementId };
       state.dragPayload = payload;
@@ -525,12 +616,82 @@ async function removePlacement(placementId) {
   }
 }
 
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 880px)").matches;
+}
+
+function setMobileView(view) {
+  state.mobileView = view === "bags" ? "bags" : "items";
+  applyMobileView();
+  if (isMobileLayout()) {
+    const top = Math.max(0, el.mobileWorkspaceTabs.getBoundingClientRect().top + window.scrollY - 62);
+    window.scrollTo({ top, behavior: "smooth" });
+  }
+}
+
+function applyMobileView() {
+  if (!el.workspace) return;
+  el.workspace.dataset.mobileView = state.mobileView;
+  const itemsActive = state.mobileView === "items";
+  el.mobileItemsTab.classList.toggle("active", itemsActive);
+  el.mobileBagsTab.classList.toggle("active", !itemsActive);
+  el.mobileItemsTab.setAttribute("aria-pressed", String(itemsActive));
+  el.mobileBagsTab.setAttribute("aria-pressed", String(!itemsActive));
+}
+
+function renderMobileQuickAddBanner() {
+  if (!el.mobileQuickAddBanner) return;
+  const bag = state.tripDetail?.bags.find((entry) => entry.id === state.quickAddBagId);
+  if (!bag) {
+    state.quickAddBagId = null;
+    el.mobileQuickAddBanner.classList.add("hidden");
+    return;
+  }
+  el.mobileQuickAddText.textContent = `Adding directly to ${bag.name}. Tap any item.`;
+  el.mobileQuickAddBanner.classList.remove("hidden");
+}
+
+function openMoveDestinationDialog(placementId) {
+  const placement = state.tripDetail?.placements.find((entry) => entry.id === placementId);
+  if (!placement) return;
+  const destinations = state.tripDetail.bags.filter((bag) => bag.id !== placement.bag_id);
+  if (!destinations.length) {
+    toast("Add another bag before moving this item.", true);
+    return;
+  }
+
+  state.destinationItemId = null;
+  state.destinationPlacementId = placementId;
+  el.destinationDialogTitle.textContent = `Move ${placement.item_name}`;
+  el.destinationList.innerHTML = destinations.map((bag) => `
+    <button class="destination-button" type="button" data-destination-bag="${escapeAttr(bag.id)}">
+      <div class="bag-icon">${BAG_ICONS[bag.bag_type] || BAG_ICONS.custom}</div>
+      <div><strong>${escapeHtml(bag.name)}</strong><span>${escapeHtml(bag.owner_name || (bag.is_shared ? "Shared" : "Unassigned"))}</span></div>
+    </button>
+  `).join("");
+
+  el.destinationList.querySelectorAll("[data-destination-bag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      el.destinationDialog.close();
+      try {
+        await movePlacement(state.destinationPlacementId, button.dataset.destinationBag);
+      } catch (error) {
+        handleError(error);
+      } finally {
+        state.destinationPlacementId = null;
+      }
+    });
+  });
+  openDialog(el.destinationDialog);
+}
+
 function openDestinationDialog(itemId) {
   if (!state.tripDetail?.bags.length) {
     toast("Add a bag first.", true);
     return;
   }
   const item = state.items.find((entry) => entry.id === itemId);
+  state.destinationPlacementId = null;
   state.destinationItemId = itemId;
   el.destinationDialogTitle.textContent = item ? `Pack ${item.name}` : "Choose a bag";
   el.destinationList.innerHTML = state.tripDetail.bags.map((bag) => `
