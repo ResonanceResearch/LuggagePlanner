@@ -87,8 +87,13 @@
           <article class="stat-card progress-card"><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><span class="stat-label" id="progressLabel">0% ready</span></article>
         </div>
 
-        <div class="workspace-grid">
-          <section class="panel library-panel">
+        <nav class="mobile-workspace-tabs" id="mobileWorkspaceTabs" aria-label="Packing workspace">
+          <button class="mobile-workspace-tab active" id="mobileItemsTab" type="button" aria-pressed="true">Items</button>
+          <button class="mobile-workspace-tab" id="mobileBagsTab" type="button" aria-pressed="false">Bags <span class="mobile-tab-badge" id="mobileBagCountBadge">0</span></button>
+        </nav>
+
+        <div class="workspace-grid" id="workspaceGrid">
+          <section class="panel library-panel" id="libraryPanel">
             <div class="panel-header">
               <div>
                 <div class="eyebrow">Reusable library</div>
@@ -103,11 +108,18 @@
             </label>
 
             <div class="category-chips" id="categoryChips" aria-label="Item categories"></div>
-            <div class="library-hint">Drag an item to a bag, or use the + button on touch devices.</div>
+            <div class="library-hint">
+              <span class="desktop-library-hint">Drag an item to a bag, or use the + button.</span>
+              <span class="mobile-library-hint">Tap an item to choose a bag.</span>
+            </div>
+            <div class="mobile-quick-add hidden" id="mobileQuickAddBanner">
+              <span id="mobileQuickAddText"></span>
+              <button class="text-button" id="mobileQuickAddCancel" type="button">Done</button>
+            </div>
             <div class="item-library" id="itemLibrary"></div>
           </section>
 
-          <section class="packing-column">
+          <section class="packing-column" id="packingColumn">
             <div class="packing-toolbar panel">
               <div>
                 <div class="eyebrow">Trip layout</div>
